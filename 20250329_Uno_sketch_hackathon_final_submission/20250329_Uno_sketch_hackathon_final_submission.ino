@@ -1,4 +1,3 @@
-// Alice Medication Game with Key Animation
 #include <Wire.h>
 #include "rgb_lcd.h"
 
@@ -38,33 +37,15 @@ unsigned long lastDebounceTime = 0;
 
 bool waitingForMedConfirmation = false;
 
-byte keyFrames[2][8] = {
-  {B00100, B01110, B11111, B00100, B01100, B01000, B01000, B00000}, // Frame 1
-  {B00100, B01010, B11111, B00100, B00100, B01000, B00100, B00000}  // Frame 2
-};
-
-void animateKeySlideAcross() {
-  lcd.createChar(0, keyFrames[0]);
-  lcd.createChar(1, keyFrames[1]);
-  for (int x = -1; x <= 8; x++) {
-    lcd.clear();
-    lcd.setCursor(x, 0);
-    lcd.write(byte((x % 2 == 0) ? 0 : 1));
-    delay(250);
-  }
-  lcd.clear();
-}
-
 void setup() {
   for (int i = 0; i < totalMeds; i++) {
     pinMode(ledPins[i], OUTPUT);
     digitalWrite(ledPins[i], LOW);
   }
+
   pinMode(buttonPin, INPUT_PULLUP);
   Serial.begin(9600);
   lcd.begin(16, 2);
-
-  animateKeySlideAcross();
 }
 
 void loop() {
@@ -81,18 +62,26 @@ void loop() {
     lastDebounceTime = currentTime;
     buttonHandled = false;
   }
+
+  // Handle long hold to reset
   if (buttonPressed && !buttonHandled && (currentTime - buttonPressStart >= holdThreshold)) {
     resetToFirstMedication();
     delay(1000);
     buttonHandled = true;
   }
+
+  // Handle short press (on release)
   if (!buttonPressed && buttonPreviouslyPressed &&
-      (currentTime - lastDebounceTime > debounceDelay) && !buttonHandled) {
+      (currentTime - lastDebounceTime > debounceDelay) &&
+      !buttonHandled) {
+
     if (waitingForMedConfirmation) {
       handleMedicationCompletion();
     }
+
     buttonHandled = true;
   }
+
   buttonPreviouslyPressed = buttonPressed;
 }
 
@@ -111,6 +100,7 @@ void waitForStartButton() {
     lcd.print(messages[i][0]);
     lcd.setCursor(0, 1);
     lcd.print(messages[i][1]);
+
     unsigned long start = millis();
     while (millis() - start < 3500) {
       if (digitalRead(buttonPin) == LOW) {
@@ -123,6 +113,7 @@ void waitForStartButton() {
     }
   }
 
+  // Final wait screen
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Press button to");
@@ -131,7 +122,6 @@ void waitForStartButton() {
 
   while (digitalRead(buttonPin) == HIGH);
   while (digitalRead(buttonPin) == LOW);
-
   hasStarted = true;
   showPlotIntro(currentMed);
   showCurrentMedication();
@@ -143,6 +133,7 @@ void showPlotIntro(int medIndex) {
     ledColors[medIndex][1],
     ledColors[medIndex][2]
   );
+
   if (medIndex == 0) {
     showMessage("Alice found a", "potion! Drink me.");
   } else if (medIndex == 1) {
@@ -152,6 +143,7 @@ void showPlotIntro(int medIndex) {
   } else if (medIndex == 3) {
     showMessage("Now unlock the", "garden door.");
   }
+
   delay(3500);
 }
 
@@ -161,29 +153,37 @@ void showCurrentMedication() {
   lcd.print("Take ");
   lcd.print(pillCounts[currentMed]);
   lcd.print(pillCounts[currentMed] == 1 ? " pill" : " pills");
+
   lcd.setCursor(0, 1);
   lcd.print(medNames[currentMed]);
+
   setBacklightColor(
     ledColors[currentMed][0],
     ledColors[currentMed][1],
     ledColors[currentMed][2]
   );
+
   for (int i = 0; i < totalMeds; i++) {
     digitalWrite(ledPins[i], (i == currentMed) ? HIGH : LOW);
   }
+
   delay(3500);
+
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Press button");
   lcd.setCursor(0, 1);
   lcd.print("after taking.");
+
   waitingForMedConfirmation = true;
 }
 
 void handleMedicationCompletion() {
   rewardCurrentMedication();
   showStoryAfterMedication();
+
   waitingForMedConfirmation = false;
+
   if (currentMed == totalMeds - 1) {
     showCompletionMessage();
     sequenceDone = true;
@@ -201,6 +201,7 @@ void rewardCurrentMedication() {
   lcd.setCursor(0, 1);
   lcd.print(medNames[currentMed]);
   lcd.print(" done");
+
   int pin = ledPins[currentMed];
   unsigned long start = millis();
   while (millis() - start < 5000) {
@@ -238,10 +239,10 @@ void showCompletionMessage() {
   delay(3500);
   showMessage("Done for now.", "Stay healthy!");
   delay(3500);
+
   for (int i = 0; i < totalMeds; i++) {
     digitalWrite(ledPins[i], LOW);
   }
-  animateKeySlideAcross();
 }
 
 void resetToFirstMedication() {
